@@ -21,7 +21,18 @@ The integration process follows a structured **four-step pipeline** designed to 
 ## System Architecture & Workflow
 
 The integration process follows a structured **four-step pipeline** designed to ensure data consistency and system stability.
+### 1. Oracle Source Setup  
+**Script:** `oracle_movies_full_pipeline.sql`
 
+**Purpose:**  
+Creates the Oracle schemas and prepares the movie metadata dataset.
+
+**Process:**
+- Creates the users `MOVIES` and `FDBO`
+- Loads `Movies.csv` into a staging table
+- Cleans the `\N` null placeholders
+- Transfers cleaned data into the typed table `MOVIES_CORE`
+  
 ### 2. PostgreSQL Source Setup  
 **Script:** `ratings_postgres_full_pipeline.sql`
 
