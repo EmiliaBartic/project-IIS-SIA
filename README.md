@@ -1,125 +1,374 @@
-# Federated IMDb Data Integration System
+# Integrated Movie Analysis System
+
 ## Project Overview
 
-This project implements a **Federated Database System** designed to analyze IMDb data across three distinct storage layers.
+This project implements an **Integrated Movie Analysis System** based on a federated data integration architecture.  
+Its purpose is to combine movie-related data from multiple heterogeneous sources into a unified analytical environment using **Oracle** as the central integration platform.
 
-Using **Oracle as the central integration hub**, the system unifies data from multiple heterogeneous sources:
+The system integrates four distinct data sources:
 
-1. **Oracle (Relational / CSV)**  
-   Core movie metadata such as titles, release years, runtime and genres.
+- **Oracle (Local Relational Source)**  
+  Stores the cleaned core movie metadata, including title identifiers, movie titles, release years, runtime, and genres.
 
-2. **PostgreSQL (Relational / ODBC)**  
-   Movie ratings dataset containing more than **1.6 million rows**.
+- **PostgreSQL (Remote Relational Source)**  
+  Stores the ratings dataset, including average ratings and vote counts. This source is later accessed from Oracle through a **Database Link**.
 
-3. **Local File System (External File)**  
-   A large **3GB crew dataset** containing directors and writers.
+- **Local File System (External File Source)**  
+  Stores the crew dataset (directors and writers) as a flat file, accessed in Oracle through an **External Table**.
 
- ## System Architecture & Workflow
+- **MongoDB / REST API (Document-Oriented Source)**  
+  Stores actor-related JSON documents that are fetched dynamically through HTTP requests and transformed into relational form inside Oracle.
 
-The integration process follows a structured **four-step pipeline** designed to ensure data consistency and system stability.
+The project demonstrates how structured, semi-structured, and external data can be integrated into a single environment for querying, reporting, and analysis without physically centralizing all source data into one database.
 
-## System Architecture & Workflow
+---
 
-The integration process follows a structured **four-step pipeline** designed to ensure data consistency and system stability.
-### 1. Oracle Source Setup  
-**Script:** `oracle_movies_full_pipeline.sql`
+## System Architecture
 
-**Purpose:**  
-Creates the Oracle schemas and prepares the movie metadata dataset.
+The system uses **Oracle** as the central orchestration and integration engine.
 
-**Process:**
-- Creates the users `MOVIES` and `FDBO`
-- Loads `Movies.csv` into a staging table
-- Cleans the `\N` null placeholders
-- Transfers cleaned data into the typed table `MOVIES_CORE`
-  
-### 2. PostgreSQL Source Setup  
-**Script:** `ratings_postgres_full_pipeline.sql`
+### Source Layers
 
-**Purpose:**  
-Prepares the remote ratings dataset stored in PostgreSQL.
+1. **Oracle Source Layer**
+   - Contains the main movie metadata
+   - Uses staging and cleaned tables
+   - Acts as the primary local relational source
 
-**Process:**
-- Creates schema `movies_pg`
-- Creates role `movies_pg`
-- Imports `ratings.csv` into PostgreSQL tables
+2. **PostgreSQL Source Layer**
+   - Contains ratings data
+   - Uses its own ETL pipeline with staging and cleaned tables
+   - Is accessed remotely from Oracle using `PG_LINK`
 
-**Note:**  
-This dataset is accessed from Oracle using an **ODBC Gateway** and a **Database Link (PG)**.
+3. **External File Layer**
+   - Contains crew data in CSV format
+   - Is exposed in Oracle through an external table without importing the file into the database
 
-### 2. PostgreSQL Source Setup  
-**Script:** `ratings_postgres_full_pipeline.sql`
+4. **MongoDB Document Layer**
+   - Contains actor documents in JSON format
+   - Is accessed through REST calls from Oracle
+   - Is transformed into a flattened relational projection view
 
-**Purpose:**  
-Prepares the remote ratings dataset stored in PostgreSQL.
+### Integration Layers
 
-**Process:**
-- Creates schema `movies_pg`
-- Creates role `movies_pg`
-- Imports `ratings.csv` into PostgreSQL tables
+5. **Federated Relational Views**
+   - Oracle integrates local movie data with remote PostgreSQL ratings through SQL views
 
-**Note:**  
-This dataset is accessed from Oracle using an **ODBC Gateway** and a **Database Link (PG)**.
+6. **Extended Integration View**
+   - Oracle adds crew data from the external table to build a more complete movie reporting layer
 
-### 4. Triple Integration Layer  
-**Script:** `FDBO_FULL_INTEGRATION.sql`
+7. **Document Projection Layer**
+   - MongoDB actor documents are converted into a relational structure for SQL-based querying
 
-**Purpose:**  
-Integrates the third data source: the large crew dataset.
+---
 
-**Process:**
-- Creates an Oracle **External Table** (`CREW_EXT`)
-- Reads data directly from the file:
-  `C:\movies_data\crew4.csv`
+## Project Files and Workflow
 
-**Important:**  
-The crew dataset is not imported into the database to avoid storing a 3GB file internally.
+The project is organized into several SQL scripts, each responsible for a specific stage of the pipeline.
 
-### 4. Triple Integration Layer  
-**Script:** `FDBO_FULL_INTEGRATION.sql`
+---
 
-**Purpose:**  
-Integrates the third data source: the large crew dataset.
+### 1. `01.oracle_movies_full_pipeline.sql`
 
-**Process:**
-- Creates an Oracle **External Table** (`CREW_EXT`)
-- Reads data directly from the file:
-  `C:\movies_data\crew4.csv`
+This script prepares the **Oracle source layer** and loads the main movie dataset.
 
-**Important:**  
-The crew dataset is not imported into the database to avoid storing a 3GB file internally.
+#### Purpose
+It creates the Oracle users, staging structures, cleaned tables, and core dataset used as the relational foundation of the project.
+
+#### Main operations
+- Switches to the `XEPDB1` pluggable database
+- Creates the Oracle users:
+  - `MOVIES`
+  - `FDBO`
+- Creates the staging table for raw movie import
+- Creates the final cleaned movie table
+- Loads movie data from CSV into staging
+- Cleans placeholder values such as `\N`
+- Transforms and inserts data into the final typed table
+- Grants access from `MOVIES` to `FDBO`
+
+#### Result
+After this step, Oracle contains the cleaned core movie metadata used by the rest of the system.
+
+---
+
+### 2. `02.ratings_postgres_full_pipeline.sql`
+
+This script prepares the **PostgreSQL ratings source**.
+
+#### Purpose
+It implements a complete ETL pipeline for the IMDb ratings dataset inside PostgreSQL.
+
+#### Main operations
+- Creates the PostgreSQL role `movies_pg` if it does not already exist
+- Creates the schema `movies_pg`
+- Creates a staging table `movies_pg.stg_ratings`
+- Loads raw ratings data from `ratings.csv`
+- Creates the final cleaned table `movies_pg.ratings`
+- Transforms and inserts data from staging into the final table
+- Runs verification and data-quality checks
+- Grants usage and select permissions on the schema and tables
+
+#### Dataset structure
+The source ratings file contains:
+- `tconst`
+- `averageRating`
+- `numVotes`
+
+#### ETL design
+The PostgreSQL implementation uses:
+- a **staging table** with all columns as `TEXT`
+- a **final cleaned table** with proper PostgreSQL data types
+
+This staging-first approach improves transparency, debugging, and data quality control.
+
+#### Result
+After this step, PostgreSQL contains:
+- `movies_pg.stg_ratings`
+- `movies_pg.ratings`
+
+The final `movies_pg.ratings` table becomes the remote relational source later used by Oracle through a Database Link.
+
+---
+
+### 3. `04.FDBO_VIEWS.sql`
+
+This script creates the **Oracle federated integration views** that combine local and remote relational data.
+
+#### Purpose
+It defines the SQL views used by the `FDBO` integration user to expose Oracle and PostgreSQL data through a unified relational interface.
+
+#### Main operations
+- Creates `FDBO.MOVIES_V`
+- Creates `FDBO.RATINGS_V`
+- Creates `FDBO.MOVIES_RATINGS_V`
+
+#### View roles
+- **`MOVIES_V`**  
+  Exposes the cleaned Oracle movie dataset
+
+- **`RATINGS_V`**  
+  Exposes the PostgreSQL ratings dataset through the database link `PG_LINK`
+
+- **`MOVIES_RATINGS_V`**  
+  Joins movie metadata with ratings using the shared IMDb identifier (`tconst`)
+
+#### Result
+After this step, Oracle can query both local and remote relational data as part of a single federated query model.
+
+---
+
+### 4. `03.FDBO_FULL_INTEGRATION.sql`
+
+This script extends the Oracle integration layer with **external file data**.
+
+#### Purpose
+It integrates the crew dataset (directors and writers) into the Oracle reporting model through an external table.
+
+#### Main operations
+- Creates the Oracle directory object used to access the CSV file
+- Grants directory access
+- Creates the external table `FDBO.CREW_EXT`
+- Reads crew data directly from a local CSV file
+- Creates the integration view `FDBO.MOVIES_FULL_INTEGRATION_V`
+
+#### Important design note
+The crew dataset is not loaded into a normal Oracle table.  
+Instead, it is accessed directly from the file system using Oracle External Table functionality.
+
+This approach:
+- avoids storing a large flat file inside the database
+- keeps the integration lightweight
+- allows direct SQL access to external data
+
+#### Result
+After this step, Oracle provides a more complete movie integration view that combines:
+- movie metadata
+- ratings
+- crew information
+
+---
+
+### 5. `05.mongodb_integration_setup.sql`
+
+This script prepares the **MongoDB document integration layer**.
+
+#### Purpose
+It enables Oracle to fetch JSON actor data from MongoDB through HTTP and transform it into a relational view.
+
+#### Main operations
+- Configures Oracle ACL permissions for outbound HTTP access
+- Creates a function used to fetch MongoDB JSON documents
+- Connects to a REST endpoint (for example through RESTHeart)
+- Retrieves actor data in JSON format
+- Parses and flattens document content into relational rows
+- Creates the view `v_actors_mongodb_flat`
+
+#### Integration strategy
+MongoDB data is not stored as a classic relational table.  
+Instead, Oracle retrieves JSON dynamically and converts it into a flattened relational projection suitable for SQL analysis.
+
+This makes it possible to:
+- query actor data relationally
+- join or compare semi-structured data with relational data
+- support analytical workflows across heterogeneous technologies
+
+#### Result
+After this step, MongoDB actor data becomes queryable from Oracle through a relational SQL view.
+
+---
+
+## Data Flow Summary
+
+The data integration pipeline can be summarized as follows:
+
+1. **Oracle movie metadata** is loaded, cleaned, and stored in `MOVIES_CORE`
+2. **PostgreSQL ratings** are loaded into `movies_pg.ratings`
+3. Oracle uses a **Database Link** to access PostgreSQL ratings remotely
+4. Oracle creates **federated views** that combine movies and ratings
+5. Oracle reads **crew data** from CSV through an external table
+6. Oracle builds an extended integration view including crew attributes
+7. Oracle fetches **MongoDB actor documents** through HTTP and exposes them through a flattened relational view
+
+---
 
 ## Security Model
 
-The system uses a **multi-user architecture** to separate responsibilities between data ownership, transformation logic and integration.
+The system uses a multi-user architecture to separate responsibilities between administration, source ownership, and integration logic.
 
-### Oracle Users (XEPDB1)
+### Oracle Users
 
-**SYS**  
-Administrative superuser responsible for system-level configuration such as:
-- container management
-- directory creation
-- user provisioning
+#### `SYS`
+Administrative user responsible for:
+- container and pluggable database management
+- directory object creation
+- grant management
+- network ACL configuration
+- general environment setup
 
-**MOVIES**  
+#### `MOVIES`
 Source data owner responsible for:
 - staging tables
-- the final `MOVIES_CORE` dataset
+- final movie tables
+- ownership of the Oracle movie source dataset
 
-**FDBO**  
-Federated integration user responsible for:
-- the PostgreSQL database link
-- the external crew table
-- all integration views
+#### `FDBO`
+Federated database integration user responsible for:
+- integration views
+- external table definitions
+- federated reporting logic
+- remote source access
+- document integration logic
 
 ### PostgreSQL Roles
 
-**postgres**  
-Administrative role used during initial system setup.
+#### `postgres`
+Administrative PostgreSQL role used during initial database setup.
 
-**movies_pg**  
-Remote data owner responsible for:
-- the `movies_pg` schema
-- ratings dataset
+#### `movies_pg`
+Application role responsible for:
+- ownership of schema `movies_pg`
+- staging table `stg_ratings`
+- final table `ratings`
 
-This user also provides the credentials used by Oracle's **Database Link (PG)**.
+This role provides the PostgreSQL-side source used later in Oracle federation.
+
+### MongoDB / REST Access
+
+MongoDB is accessed through a REST interface.  
+Oracle uses outbound HTTP calls controlled by:
+- ACL permissions
+- controlled procedure execution
+- Oracle network security configuration
+
+---
+
+## Technologies Used
+
+- **Oracle Database**
+- **PostgreSQL**
+- **MongoDB**
+- **Oracle Database Links**
+- **Oracle External Tables**
+- **Oracle ACL / UTL_HTTP**
+- **REST API**
+- **JSON parsing**
+- **Federated relational views**
+- **ETL pipeline with staging tables**
+
+---
+
+## Key Design Concepts
+
+### 1. Federated Data Integration
+The project does not rely on importing every source into a single physical database.  
+Instead, it integrates multiple systems while preserving their native storage models.
+
+### 2. Staging-Based ETL
+Both Oracle and PostgreSQL use staging tables before loading cleaned final data.  
+This improves traceability, validation, and debugging.
+
+### 3. Heterogeneous Source Support
+The system combines:
+- relational data
+- external flat-file data
+- document-oriented JSON data
+
+### 4. Logical Unification Through Views
+Rather than forcing all data into one physical schema, Oracle uses views and integration logic to create a unified analytical layer.
+
+### 5. Storage Efficiency
+Large external files such as the crew dataset are not imported into internal tables, reducing database storage overhead.
+
+---
+
+## Main Database Objects
+
+### Oracle Objects
+- `MOVIES_CORE_STG`
+- `MOVIES_CORE`
+- `FDBO.MOVIES_V`
+- `FDBO.RATINGS_V`
+- `FDBO.MOVIES_RATINGS_V`
+- `FDBO.CREW_EXT`
+- `FDBO.MOVIES_FULL_INTEGRATION_V`
+- `v_actors_mongodb_flat`
+
+### PostgreSQL Objects
+- `movies_pg.stg_ratings`
+- `movies_pg.ratings`
+
+---
+
+## Notes
+
+- The PostgreSQL ratings source is expected to be reachable from Oracle through a configured database link such as `PG_LINK`.
+- The crew dataset is accessed through an Oracle external table and remains outside the internal database storage.
+- The MongoDB actor integration is implemented as a separate relational projection view.
+- Depending on the current SQL implementation, MongoDB data may be queryable separately and may not yet be fully merged into the main full integration view.
+- Script execution order matters and should follow the pipeline described in this README.
+
+---
+
+## Recommended Execution Order
+
+Run the scripts in the following order:
+
+1. `01.oracle_movies_full_pipeline.sql`
+2. `02.ratings_postgres_full_pipeline.sql`
+3. `04.FDBO_VIEWS.sql`
+4. `03.FDBO_FULL_INTEGRATION.sql`
+5. `05.mongodb_integration_setup.sql`
+
+---
+
+## Final Outcome
+
+After all scripts are executed successfully, the project provides a federated analytical environment in which Oracle can:
+
+- query local movie metadata
+- access remote PostgreSQL ratings
+- read crew data from external CSV files
+- fetch actor data from MongoDB through REST
+- expose these heterogeneous sources through a common SQL-oriented integration model
+
+This project demonstrates a practical implementation of a **federated data integration system** for movie analytics using relational, semi-structured, and file-based sources.
