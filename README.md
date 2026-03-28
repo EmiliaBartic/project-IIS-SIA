@@ -339,6 +339,77 @@ Large external files such as the crew dataset are not imported into internal tab
 
 ---
 
+## Analytical and Presentation Layers
+
+This project includes a complete analytical and presentation stack that transforms integrated raw data into meaningful business intelligence, exposes the results through REST services, and delivers them in a user-friendly web interface.
+
+### 1. ROLAP Analytical Model
+
+The system moves from raw, integrated data to decision-support analytics through a dedicated **ROLAP (Relational OLAP)** layer.
+
+#### Fact View: `V_ULTIMATE_MOVIE_REPORT`
+At the core of the analytical layer is the `V_ULTIMATE_MOVIE_REPORT` view, designed as a **wide fact view** that consolidates data from all integrated sources into a single structure.  
+This view acts as the **main source of truth** for analytical queries and reporting.
+
+#### Multi-Dimensional Analysis
+To support advanced analysis from multiple business perspectives, the project implements several SQL analytical operators:
+
+- **ROLLUP**  
+  Used for hierarchical aggregations, such as analyzing performance across levels like:
+  - **Genre → Director → Movie**
+
+- **CUBE**  
+  Used for cross-dimensional analysis and matrix-style summaries, for example:
+  - **Director × Actor quality matrix**
+
+- **GROUPING SETS**  
+  Used for custom aggregation scenarios, allowing targeted summaries for:
+  - **MVP identification**
+  - **risk profiling**
+  - other specialized business views
+
+This approach enables the platform to provide both detailed and aggregated insights, depending on the analytical need.
+
+### 2. Web Services with ORDS
+
+All analytical views have been exposed as RESTful services using **Oracle REST Data Services (ORDS)**.
+
+This allows external systems, browser-based clients, or other applications to access the analytical results in **JSON format**, making the platform easier to integrate with modern web and reporting tools.
+
+Main benefits:
+- easy access to analytical data through HTTP endpoints
+- JSON-based responses for interoperability
+- seamless integration with dashboards or third-party applications
+
+### 3. Oracle APEX Application
+
+To make the integrated and analytical data easier to explore, a **low-code web application** was developed using **Oracle APEX**.
+
+#### Interactive Reports
+The application includes interactive reports built on top of the `MOVIES_FULL_INTEGRATION_V` view, allowing users to:
+- filter data dynamically
+- search and sort records
+- explore the integrated dataset without writing SQL queries
+
+#### Analytical Dashboards
+The APEX application also provides visual dashboards based on the analytical views generated through `ROLLUP`, `CUBE`, and related SQL models.
+
+The dashboards include:
+- **Bar Charts**
+- **Pie Charts**
+- **Stacked Bar Charts**
+
+These visualizations help identify:
+- market trends
+- top-performing categories
+- quality outliers
+- distribution patterns across the integrated movie dataset
+
+---
+
+Together, these layers form the final stage of the platform, where integrated data is transformed into accessible analytics, exposed through REST services, and presented through an interactive web application.
+
+
 ## Notes
 
 - The PostgreSQL ratings source is expected to be reachable from Oracle through a configured database link such as `PG_LINK`.
