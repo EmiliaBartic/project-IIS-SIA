@@ -9,9 +9,7 @@ FROM FDBO.V_ULTIMATE_MOVIE_REPORT
 WHERE ROWNUM <= 5000
 GROUP BY ROLLUP(genres, directors, primaryTitle);
 
-/* COMENTARIU PENTRU BROWSER: 
-   Acest endpoint expune o ierarhie pe 3 niveluri (Gen -> Regizor -> Titlu).
-   Te va ajuta să vezi subtotalurile punctajelor pe genuri și regizori direct în format JSON. */
+/* Acest endpoint expune o ierarhie pe 3 niveluri (Gen -> Regizor -> Titlu). */
 
 -- 3.2. CUBE: Matricea Globala de Succes NoSQL-CSV
 -- Cel mai complex query: intrepatrunde Profesie (Mongo), Gen (Oracle) si Rating
@@ -23,8 +21,7 @@ FROM FDBO.V_ULTIMATE_MOVIE_REPORT
 WHERE actor_prof IS NOT NULL
 GROUP BY CUBE(actor_prof, genres, CASE WHEN average_rating > 8 THEN 'TOP' ELSE 'NORMAL' END);
 /* COMENTARIU PENTRU BROWSER: 
-   Acest endpoint returnează matricea globală. Aici vei vedea în JSON toate 
-   combinațiile posibile între profesia actorului, genul filmului și rangul de succes. */
+   Acest endpoint returnează matricea globală. */
 
 -- 3.3. GROUPING SETS: Profilarea de Risc si Performanta (The Data Scientist)
 -- Utilizeaza functia GROUPING pentru a eticheta inteligent nivelul de agregare.
@@ -45,8 +42,7 @@ FROM FDBO.V_ULTIMATE_MOVIE_REPORT
 WHERE average_rating IS NOT NULL
 GROUP BY GROUPING SETS ((genres, directors), (actor_prof, genres), (directors), ())
 HAVING COUNT(*) > 1;
-/* COMENTARIU PENTRU BROWSER: 
-   Acest endpoint oferă profilele de risc. JSON-ul generat va fi deja segmentat curat
+/* Acest endpoint oferă profilele de risc. JSON-ul generat va fi deja segmentat curat
    (ex: date doar despre regizori, urmate de date doar despre profesie+gen). */
 
 -- EXPUNERE ORDS PENTRU ANDREI
