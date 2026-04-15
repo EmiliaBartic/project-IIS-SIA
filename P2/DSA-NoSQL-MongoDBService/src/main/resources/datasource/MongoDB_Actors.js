@@ -1,0 +1,32 @@
+//use mds;
+
+db.actors.insertMany([
+    {
+        "nconst": "nm0000001",
+        "primaryName": "Fred Astaire",
+        "birthYear": "1899",
+        "deathYear": "1987",
+        "primaryProfession": "actor,miscellaneous,producer",
+        "knownForTitles": "tt0072308,tt0050419,tt0027125,tt0025164"
+    },
+    {
+        "nconst": "nm0000002",
+        "primaryName": "Lauren Bacall",
+        "birthYear": "1924",
+        "deathYear": "2014",
+        "primaryProfession": "actress,miscellaneous,soundtrack",
+        "knownForTitles": "tt0037382,tt0075213,tt0038355,tt0045891"
+    },
+    {
+        "nconst": "nm0000003",
+        "primaryName": "Brigitte Bardot",
+        "birthYear": "1934",
+        "deathYear": "2025",
+        "primaryProfession": "actress,music_department,producer",
+        "knownForTitles": "tt0057345,tt0049189,tt0056404,tt0054452"
+    }
+]);
+
+db.actors.find();
+
+db.actors.find({'birthYear': '1899'});

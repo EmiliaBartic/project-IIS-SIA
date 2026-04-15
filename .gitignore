@@ -1,0 +1,31 @@
+# ===============
+# IntelliJ IDEA
+# ===============
+.idea/
+*.iml
+*.iws
+
+# ===============
+# Maven (Build)
+# ===============
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+
+# ===============
+# Java / Spring
+# ===============
+*.class
+*.log
+*.jar
+*.war
+hs_err_pid*
+
+# ===============
+# OS specific
+# ===============
+.DS_Store
+Thumbs.db
+*.csv
