@@ -10,8 +10,8 @@ SELECT java_method(
 
 -- Obtinem schema sugerata de Spark
 SELECT schema_of_json('[
-	{"tconst":"tt0000001","category":"self","job":"\\N","characters":"[\"Self\"]"}
-    ]');
+   {"tconst":"tt0000001", "category":"self", "job":"N/A", "characters":"Self"}
+]');
 
 ----------------------------------------------------------------------------------
 -- 2. Cream Remote View

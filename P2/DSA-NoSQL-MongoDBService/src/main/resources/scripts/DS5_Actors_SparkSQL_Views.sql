@@ -1,22 +1,25 @@
 ----------------------------------------------------------------------------------
---- DS5_Actors_SparkSQL_Views_from_REST.sql - Metoda cu Serviciu Automat
+--- DS5_Actors_SparkSQL_Views.sql - Integrare MongoDB (Metoda Sigură)
 ----------------------------------------------------------------------------------
 
--- 1. Cream View-ul JSON brut folosind clasa profesorului
-SELECT java_method(
-               'org.spark.service.rest.RESTEnabledSQLService',
-               'createJSONViewFromREST',
-               'ACTORS_JSON_VIEW',
-               'http://localhost:8093/DSA-NoSQL-MongoDBService/rest/actors-data/ActorView');
-
--- Testam daca l-a creat
-SELECT * FROM ACTORS_JSON_VIEW;
-
--- 2. Cream Remote View-ul final (desfacem lista cu explode)
+-- 1. Cream View-ul final folosind metoda de extragere brută + transformare
 -- DROP VIEW actors_view_rest;
 CREATE OR REPLACE VIEW actors_view_rest AS
-select v.*
-FROM ACTORS_JSON_VIEW as json_view LATERAL VIEW explode(json_view.array) AS v;
+WITH json_view AS (
+    -- Aici definim exact ce date asteptam de la MongoDB (Schema)
+    SELECT from_json(json_raw.data, 'ARRAY<STRUCT<primaryName: STRING, birthYear: STRING, deathYear: STRING, primaryProfession: STRING>>') as array
+    FROM (
+             -- Aducem textul JSON pur de la microserviciul MongoDB
+             SELECT java_method(
+                            'org.spark.service.rest.QueryRESTDataService',
+                            'getRESTDataDocument',
+                            'http://localhost:8093/DSA-NoSQL-MongoDBService/rest/actors-data/ActorView'
+                        ) as data
+         ) json_raw
+)
+-- Desfacem lista de actori in randuri individuale
+SELECT v.*
+FROM json_view LATERAL VIEW explode(json_view.array) AS v;
 
--- 3. Testam Remote View-ul final
-select * FROM actors_view_rest;
+-- 2. Testam rezultatul final!
+SELECT * FROM actors_view_rest;

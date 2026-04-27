@@ -17,7 +17,7 @@ import java.util.logging.Logger;
 	http://localhost:8093/DSA-NoSQL-MongoDBService/rest/actors-data/ActorView
 */
 @RestController
-@RequestMapping("/actors-data") // Am schimbat din /locations in /actors-data
+@RequestMapping("/actors-data")
 public class RESTViewServiceMongoDB {
 	private static Logger logger = Logger.getLogger(RESTViewServiceMongoDB.class.getName());
 
