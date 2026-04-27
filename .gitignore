@@ -29,3 +29,5 @@ hs_err_pid*
 .DS_Store
 Thumbs.db
 *.csv
+metastore_db/
+derby.log
