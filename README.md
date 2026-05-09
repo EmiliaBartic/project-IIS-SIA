@@ -1,75 +1,81 @@
-# Arhitectura de Federatie a Datelor (Data Federation) cu Apache Spark
+# Arhitectura de Federație a Datelor (Data Federation) cu Apache Spark
 
-Acest repository contine Partea a 2-a (P2) a proiectului, concentrandu-se pe integrarea si virtualizarea surselor de date eterogene printr-o arhitectura de tip microservicii (Spring Boot) si Apache Spark.
+Acest repository conține Partea a 2-a (P2) a proiectului, concentrându-se pe integrarea, virtualizarea și expunerea surselor de date eterogene printr-o arhitectură completă pe 3 niveluri (Access, Integration, Web) folosind microservicii Spring Boot și Apache Spark.
 
 ## Descrierea Proiectului
-Sistemul propune o paradigma moderna de Virtualizare a Datelor, eliminand necesitatea proceselor traditionale si costisitoare de tip ETL (Extract, Transform, Load).
+Sistemul propune o paradigmă modernă de Virtualizare a Datelor, eliminând necesitatea proceselor tradiționale și costisitoare de tip ETL (Extract, Transform, Load).
 
-Baza arhitecturii este principiul Persistentei Poliglote (Polyglot Persistence). Sistemul nu forteaza o schema unica, ci permite executarea de interogari SQL complexe (JOIN-uri federate) direct peste baze de date SQL, NoSQL si fisiere plate, in timp real, direct in memoria RAM, aplicand conceptul de Schema-on-Read.
-
----
-
-## Componentele Arhitecturii (Microservicii)
-
-Sistemul respecta principiul de Loose Coupling (Cuplaj Slab) si este decuplat in 5 microservicii independente:
-
-### 1. `DSA-SparkSQL-Service` (Nivelul de Virtualizare)
-- **Port:** `9990`
-- **Tehnologie:** Apache Spark SQL, Thrift Server
-- **Rol:** Nodul central care agrega datele din celelalte servicii prin HTTP REST, transforma raspunsurile JSON in tabele virtuale (DataFrames) si executa interogarile globale.
-
-### 2. `DSA-SQL-JPAService` (Sursa Principala / Analitica)
-- **Port:** `8091`
-- **Baza de date:** Oracle
-- **Tehnologie:** Spring Data JPA / Hibernate
-- **Rol:** Ofera date complexe despre filme si rapoarte integrate analitice (OLAP).
-
-### 3. `DSA-SQL-JDBCService` (Sursa de Performanta)
-- **Port:** `8090`
-- **Baza de date:** PostgreSQL
-- **Tehnologie:** JDBC Native
-- **Rol:** Ofera rating-urile filmelor. Utilizeaza acces low-level (JDBC) pentru a asigura o viteza maxima de citire, evitand overhead-ul unui ORM.
-
-### 4. `DSA-NoSQL-MongoDBService` (Sursa Flexibila)
-- **Port:** `8093`
-- **Baza de date:** MongoDB
-- **Tehnologie:** Spring Data MongoDB
-- **Rol:** Gestioneaza colectiile de actori (date orientate pe documente, JSON nestructurat).
-
-### 5. `DSA-DOC-CSVService` (Sursa Fisier / Document)
-- **Port:** `8097`
-- **Sursa:** Fisier local `crew.csv` (3.45 GB)
-- **Tehnologie:** Apache Commons CSV
-- **Rol:** Demonstreaza virtualizarea fisierelor plate. Implementeaza un mecanism de management al memoriei (limitare la 500 de randuri) pentru a preveni erorile de tip `OutOfMemory` la procesarea datelor masive.
+Baza arhitecturii este principiul Persistenței Poliglote (Polyglot Persistence). Sistemul nu forțează o schemă unică, ci permite executarea de interogări SQL complexe (JOIN-uri federate) direct peste baze de date SQL, NoSQL și fișiere plate, în timp real, direct în memoria RAM, aplicând conceptul de Schema-on-Read.
 
 ---
 
-## Instructiuni de Rulare
+## Arhitectura pe 3 Niveluri (Microservicii)
+
+Sistemul respectă principiul de Loose Coupling (Cuplaj Slab) și este decuplat în 6 microservicii independente, structurate logic astfel:
+
+### NIVELUL 1: Access Model (Extragerea Datelor Brute)
+1. **`DSA-SQL-JPAService` (Port: 8091)**
+   - **Baza de date:** Oracle
+   - **Tehnologie:** Spring Data JPA / Hibernate
+   - **Rol:** Oferă date complexe despre filme (Ultimate Report).
+2. **`DSA-SQL-JDBCService` (Port: 8090)**
+   - **Baza de date:** PostgreSQL
+   - **Tehnologie:** JDBC Native
+   - **Rol:** Oferă rating-urile filmelor cu viteză maximă de citire, evitând overhead-ul unui ORM.
+3. **`DSA-NoSQL-MongoDBService` (Port: 8093)**
+   - **Baza de date:** MongoDB
+   - **Tehnologie:** Spring Data MongoDB
+   - **Rol:** Gestionează colecțiile de actori (documente JSON nestructurate, biografii).
+4. **`DSA-DOC-CSVService` (Port: 8097)**
+   - **Sursa:** Fișier local `crew.csv`
+   - **Tehnologie:** Apache Commons CSV
+   - **Rol:** Virtualizează fișiere plate, implementând un management strict al memoriei pentru a preveni erori de tip `OutOfMemory`.
+
+### NIVELUL 2: Integration and Analytical Model (Procesare Big Data)
+5. **`DSA-SparkSQL-Service` (Port: 10000 / 9990)**
+   - **Tehnologie:** Apache Spark SQL, Hive Thrift Server
+   - **Rol:** "Creierul" central. Agregă datele din Access Model prin HTTP REST, transformă JSON în DataFrames și execută:
+     - *Interogări Federate:* JOIN-uri cross-database (ex: PostgreSQL + CSV).
+     - *Analitică Multidimensională (OLAP):* Calculează cuburi de date folosind funcții avansate (`CUBE`, `ROLLUP`) pentru rapoarte ierarhice.
+
+### NIVELUL 3: Web Model (Expunerea Datelor)
+6. **`DSA-WEB-RESTService` (Port: 8096)**
+   - **Tehnologie:** Spring Boot Web, Hive-JDBC Driver
+   - **Rol:** Acționează ca un translator. Se conectează la Spark, extrage rezultatele rapoartelor OLAP și le expune ca endpoint-uri REST (JSON), fiind pregătit pentru a fi consumat de orice aplicație Frontend (ex: Dashboard-uri cu grafice).
+
+---
+
+## Instrucțiuni de Rulare
 
 ### 1. Pre-rechizite
 - Java JDK 17+
 - Maven
-- Bazele de date (Oracle, PostgreSQL, MongoDB) active si populate cu datele initiale
-- Fisierul `crew.csv` trebuie sa fie prezent in locatia fizica mapata in fisierul `application.properties` al serviciului CSV
+- Bazele de date (Oracle, PostgreSQL, MongoDB) active și populate.
 
 ### 2. Ordinea de Pornire
-Pentru ca federatia sa functioneze corect, serviciile trebuie pornite astfel:
-1. Porniti cele 4 surse de date: `JPAService`, `JDBCService`, `MongoDBService` si `CSVService`
-2. Dupa ce acestea ruleaza pe porturile aferente, porniti serviciul de virtualizare: `SparkSQL-Service`
+Pentru ca federația să funcționeze corect, serviciile trebuie pornite "de jos în sus":
+1. Porniți cele 4 surse din Nivelul 1 (`JPAService`, `JDBCService`, `MongoDBService`, `CSVService`).
+2. Porniți motorul de virtualizare din Nivelul 2 (`SparkSQL-Service`).
+3. Porniți interfața REST din Nivelul 3 (`SpringBootWEBService`).
 
-### 3. Autentificare si Securitate (Basic Auth)
-Sistemul implementeaza masuri de protectie la nivel de endpoint. Accesarea datelor necesita credentiale:
+### 3. Autentificare și Securitate (Basic Auth)
+Sistemul implementează măsuri de protecție la nivel de endpoint (Spring Security). Accesarea link-urilor Web necesită credențiale:
 - **User:** `developer`
 - **Parola:** `iis`
 
-Nota: SparkService extrage, parseaza si trimite automat aceste credentiale prin retea catre microserviciile securizate folosind arhitectura REST.
+---
+
+## Endpoint-uri Analitice Expuse (Web Model)
+Prin accesarea `http://localhost:8096/DSA-WEB-RESTService/rest/OLAP/...` se pot vizualiza rezultatele finale în format JSON:
+- `/RAW_ORACLE_REPORT` & `/RAW_POSTGRES_RATINGS` (Date Brute)
+- `/DIM_MOVIES_ACTORS` & `/DIM_CREW_VOTES` (Dimensiuni Integrate Federate)
+- `/ANALYTICS_CUBE` (Analiză încrucișată Genuri vs. Profesii Actori)
+- `/ANALYTICS_ROLLUP` (Analiză ierarhică subtotaluri Voturi pe Categorii Echipaj)
 
 ---
 
-## Testare Automata (CI/CD Ready)
-Arhitectura este validata printr-o suita de teste JUnit.
-
-Fiecare microserviciu contine clase de test specifice in `src/test/java/...` care valideaza:
-- Sanatatea serviciilor (Ping): verificare HTTP 200 OK si Content Negotiation (Text vs JSON)
-- Extractia de date: preluarea cu succes a datelor statice, dinamice si analitice cu autentificare activa
-- Securitatea datelor: validarea si filtrarea defensiva a adreselor URL impotriva injectiilor de date malformate (ex: testarea `URISyntaxException` in Spark)
+## Testare Automată (CI/CD Ready)
+Arhitectura este validată printr-o suită extinsă de teste JUnit:
+- **Sanity Checks:** Verificarea stării serviciilor (Ping HTTP 200 OK).
+- **End-to-End Testing (E2E):** Clasa `TestSpringBootWEBService` validează automat întregul flux de date, simulând un client care preia JSON-urile din Web Model, forțând astfel Spark să interogheze în timp real bazele de date fizice.
+- **Security Validation:** Autentificare Basic Auth testată programatic și prevenirea erorilor de URL/URI.
